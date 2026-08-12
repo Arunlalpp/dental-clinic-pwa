@@ -1,0 +1,69 @@
+rules_version = '2';
+
+// Mirrors the old Postgres RLS policy table (supabase/migrations/0001_foundation.sql)
+// exactly, but driven by Firebase Auth custom claims (request.auth.token.role)
+// instead of a live `profiles` lookup per rule — set once by
+// provisionStaffUserAction, no Cloud Functions needed.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isStaff()           { return request.auth != null && request.auth.token.role != null; }
+    function isAdmin()           { return isStaff() && request.auth.token.role in ['owner', 'admin']; }
+    function canManageClinical() { return isStaff() && request.auth.token.role in ['owner', 'admin', 'dentist']; }
+    function isSelf(uid)         { return request.auth != null && request.auth.uid == uid; }
+
+    match /profiles/{uid} {
+      allow read: if isStaff();
+      allow update: if isSelf(uid) || isAdmin();
+      allow delete: if isAdmin();
+      allow create: if false; // only provisionStaffUserAction (Admin SDK) creates profiles
+    }
+
+    match /dentists/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /patients/{id} {
+      allow read, create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    match /appointments/{id} {
+      allow read, create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    match /treatments/{id} {
+      allow read: if isStaff();
+      allow write: if canManageClinical();
+    }
+
+    match /payments/{id} {
+      allow read, create: if isStaff();
+      allow update, delete: if isAdmin();
+    }
+
+    match /prescriptions/{id} {
+      allow read: if isStaff();
+      allow write: if canManageClinical();
+    }
+
+    match /treatmentPrices/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // Uniqueness/locking/counter documents — touched only inside Admin SDK
+    // transactions server-side (createPatient / createAppointment); never
+    // written or read directly by a client.
+    match /phoneIndex/{id} {
+      allow read, write: if false;
+    }
+    match /appointmentSlots/{id} {
+      allow read, write: if false;
+    }
+    match /counters/{id} {
+      allow read, write: if false;
+    }
+  }
+}
