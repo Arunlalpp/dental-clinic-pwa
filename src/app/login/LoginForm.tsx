@@ -33,7 +33,6 @@ export function LoginForm() {
       });
       if (!res.ok) throw new Error("session");
       router.replace(next);
-      router.refresh();
     } catch {
       setError("Those details didn’t match. Check your email and password.");
     } finally {
