@@ -1,22 +1,22 @@
-import { format } from "date-fns";
 import { getCurrentProfile } from "@/lib/auth";
 import * as reportService from "@/services/reportService";
 import * as appointmentService from "@/services/appointmentService";
 import { StatCard, QuickActions } from "@/components/dashboard/DashboardBits";
 import { TodayTimeline } from "@/components/dashboard/TodayTimeline";
+import { dateKey, formatDateIST, hourIST } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const profile = await getCurrentProfile();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateKey();
 
   const [stats, appointments] = await Promise.all([
     reportService.dashboardStats(today),
     appointmentService.listByDate(today),
   ]);
 
-  const hour = new Date().getHours();
+  const hour = hourIST();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const firstName = profile?.name?.split(" ")[0] ?? "there";
 
@@ -27,7 +27,7 @@ export default async function DashboardPage() {
           {greeting}, {firstName} 👋
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          {format(new Date(), "EEEE, MMMM d")} · here’s what’s happening today.
+          {formatDateIST()} · here’s what’s happening today.
         </p>
       </header>
 

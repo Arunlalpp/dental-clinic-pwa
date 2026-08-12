@@ -7,3 +7,5 @@
 next-env.d.ts
 .firebase/
 tsconfig.tsbuildinfo
+.vercel
+.env*

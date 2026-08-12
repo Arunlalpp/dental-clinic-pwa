@@ -1,4 +1,5 @@
 import { adminDb } from "@/lib/firebase/admin";
+import { dateKey } from "@/lib/utils";
 import type { AppointmentStatus } from "@/lib/types";
 
 export interface DashboardStats {
@@ -31,7 +32,7 @@ export interface Point {
 export async function revenueSeries(days = 14): Promise<Point[]> {
   const since = new Date();
   since.setDate(since.getDate() - (days - 1));
-  const sinceKey = since.toISOString().slice(0, 10);
+  const sinceKey = dateKey(since);
   const snap = await adminDb
     .collection("payments")
     .where("paymentDate", ">=", sinceKey)
@@ -40,7 +41,7 @@ export async function revenueSeries(days = 14): Promise<Point[]> {
   for (let i = 0; i < days; i++) {
     const d = new Date(since);
     d.setDate(since.getDate() + i);
-    byDay.set(d.toISOString().slice(0, 10), 0);
+    byDay.set(dateKey(d), 0);
   }
   for (const doc of snap.docs) {
     const d = doc.data();
@@ -75,12 +76,12 @@ export interface RevenueTotals {
 }
 
 export async function revenueTotals(): Promise<RevenueTotals> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateKey();
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 6);
   const monthAgo = new Date();
   monthAgo.setDate(monthAgo.getDate() - 29);
-  const monthAgoKey = monthAgo.toISOString().slice(0, 10);
+  const monthAgoKey = dateKey(monthAgo);
 
   const [paysSnap, patientsSnap] = await Promise.all([
     adminDb.collection("payments").where("paymentDate", ">=", monthAgoKey).get(),
@@ -101,7 +102,7 @@ export async function revenueTotals(): Promise<RevenueTotals> {
 
   return {
     today: sum(today),
-    week: sum(weekAgo.toISOString().slice(0, 10)),
+    week: sum(dateKey(weekAgo)),
     month: rows.reduce((s, r) => s + r.amount, 0),
     outstanding,
   };

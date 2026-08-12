@@ -6,7 +6,7 @@ import * as appointmentService from "@/services/appointmentService";
 import * as treatmentService from "@/services/treatmentService";
 import * as prescriptionService from "@/services/prescriptionService";
 import type { NewAppointmentInput } from "@/services/appointmentService";
-import { APPOINTMENT_TYPE_LABELS } from "@/lib/utils";
+import { APPOINTMENT_TYPE_LABELS, dateKey } from "@/lib/utils";
 import type { AppointmentStatus, AppointmentType, Medicine } from "@/lib/types";
 
 const CLINICAL_ROLES = ["owner", "admin", "dentist"];
@@ -86,7 +86,7 @@ export async function completeConsultationAction(
       diagnosis: input.diagnosis ?? null,
       status: "completed",
       notes: input.notes ?? null,
-      treatment_date: new Date().toISOString().slice(0, 10),
+      treatment_date: dateKey(),
       cost: input.cost,
     });
 

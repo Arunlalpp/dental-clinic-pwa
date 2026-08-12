@@ -6,6 +6,40 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const CLINIC_TIMEZONE = "Asia/Kolkata";
+
+/**
+ * YYYY-MM-DD for a date in the clinic's local timezone. Server code runs on
+ * Vercel in UTC, so plain `toISOString().slice(0,10)` rolls over to the
+ * next/previous calendar day for up to 5.5 hours a day relative to IST —
+ * this is what every server-side "today" computation should use instead.
+ */
+export function dateKey(date: Date = new Date()): string {
+  return date.toLocaleDateString("en-CA", { timeZone: CLINIC_TIMEZONE });
+}
+
+/** "Wednesday, August 13" in the clinic's local timezone. */
+export function formatDateIST(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: CLINIC_TIMEZONE,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+}
+
+/** Current hour (0-23) in the clinic's local timezone, e.g. for greeting text. */
+export function hourIST(date: Date = new Date()): number {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: CLINIC_TIMEZONE,
+      hour: "numeric",
+      hour12: false,
+    }).format(date),
+  );
+  return hour % 24;
+}
+
 /** Digits-only normalization — mirrors the DB `normalize_phone` trigger. */
 export function normalizePhone(raw: string): string {
   return (raw || "").replace(/\D/g, "");

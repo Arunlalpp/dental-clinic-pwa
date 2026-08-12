@@ -2,6 +2,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { paymentFromDoc } from "@/lib/firebase/converters";
 import { recomputeStats } from "@/services/patientService";
+import { dateKey } from "@/lib/utils";
 import type { Payment, PaymentMethod, PaymentStatus } from "@/lib/types";
 
 export async function listByPatient(patientId: string): Promise<Payment[]> {
@@ -45,7 +46,7 @@ export async function recordPayment(input: NewPaymentInput): Promise<Payment> {
     paymentMethod: input.payment_method,
     paymentStatus: input.payment_status ?? "paid",
     transactionReference: input.transaction_reference ?? null,
-    paymentDate: input.payment_date ?? new Date().toISOString().slice(0, 10),
+    paymentDate: input.payment_date ?? dateKey(),
     notes: input.notes ?? null,
     createdBy: input.created_by ?? null,
     createdAt: FieldValue.serverTimestamp(),
