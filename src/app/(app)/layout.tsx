@@ -4,6 +4,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { SplashScreen } from "@/components/layout/SplashScreen";
+import { PushListener } from "@/components/layout/PushListener";
 
 export default async function AppLayout({
   children,
@@ -19,6 +20,7 @@ export default async function AppLayout({
       <PageTransition>{children}</PageTransition>
       <BottomNav />
       <SplashScreen />
+      <PushListener />
     </div>
   );
 }
