@@ -3,7 +3,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { signOutAction } from "@/app/actions/auth";
 import { Avatar, Card, Button } from "@/components/ui";
 import { NotificationToggle } from "@/components/settings/NotificationToggle";
-import { Shield, LogOut, Building2, IndianRupee, ChevronRight } from "lucide-react";
+import { Shield, LogOut, Building2, IndianRupee, ChevronRight, Pill } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +32,18 @@ export default async function SettingsPage() {
         <Row icon={<Building2 size={18} className="text-brand-600" />} label="Clinic profile" hint="Carewell Dental" />
         <NotificationToggle />
         <Row icon={<Shield size={18} className="text-brand-600" />} label="Roles & access" hint={profile?.role ?? ""} />
+      </Card>
+
+      <Card>
+        <Link href="/settings/medicines" className="flex items-center gap-3 p-4">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-50">
+            <Pill size={18} className="text-brand-600" />
+          </span>
+          <span className="flex-1 text-sm font-medium text-slate-700">
+            Medicine reference
+          </span>
+          <ChevronRight size={16} className="text-slate-300" />
+        </Link>
       </Card>
 
       {isAdmin && (

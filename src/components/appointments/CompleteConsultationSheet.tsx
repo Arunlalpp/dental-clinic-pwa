@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { X, Plus, Trash2, CheckCheck } from "lucide-react";
@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/toast";
 import { completeConsultationAction } from "@/app/actions/appointments";
 import { APPOINTMENT_TYPE_LABELS, APPOINTMENT_TYPES, getFee } from "@/lib/utils";
 import { ConsultationSuccessOverlay } from "@/components/appointments/SuccessOverlay";
+import { ALL_MEDICINES } from "@/lib/medicineReference";
 import type { Appointment, AppointmentType, Medicine, TreatmentPrice } from "@/lib/types";
 
 const emptyMedicine = (): Medicine => ({ name: "", dosage: "", frequency: "", duration: "" });
@@ -225,11 +226,10 @@ export function CompleteConsultationSheet({
                         )}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        <input
+                        <MedicineNameField
+                          index={i}
                           value={m.name}
-                          onChange={(e) => updateMedicine(i, { name: e.target.value })}
-                          placeholder="Name"
-                          className={`${inputCls} col-span-2`}
+                          onUpdate={updateMedicine}
                         />
                         <input
                           value={m.dosage}
@@ -284,5 +284,73 @@ export function CompleteConsultationSheet({
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+/* ------------------------------------------------------- medicine autocomplete */
+function MedicineNameField({
+  index,
+  value,
+  onUpdate,
+}: {
+  index: number;
+  value: string;
+  onUpdate: (i: number, patch: Partial<Medicine>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  const query = value.trim().toLowerCase();
+  const matches = query
+    ? ALL_MEDICINES.filter((m) => m.name.toLowerCase().includes(query)).slice(0, 6)
+    : [];
+
+  return (
+    <div ref={containerRef} className="relative col-span-2">
+      <input
+        value={value}
+        onChange={(e) => {
+          onUpdate(index, { name: e.target.value });
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder="Name"
+        autoComplete="off"
+        className={`${inputCls} w-full`}
+      />
+      {open && matches.length > 0 && (
+        <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-xl bg-white py-1 shadow-float ring-1 ring-slate-100">
+          {matches.map((m) => (
+            <button
+              key={m.name}
+              type="button"
+              onClick={() => {
+                onUpdate(index, {
+                  name: m.name,
+                  dosage: m.dosage,
+                  frequency: m.frequency,
+                  duration: m.duration,
+                });
+                setOpen(false);
+              }}
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition hover:bg-slate-50"
+            >
+              <span className="truncate font-medium text-slate-700">{m.name}</span>
+              <span className="shrink-0 text-xs text-slate-400">{m.dosage}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
