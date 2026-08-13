@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { TopBar } from "@/components/layout/TopBar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { PageTransition } from "@/components/layout/PageTransition";
+import { SplashScreen } from "@/components/layout/SplashScreen";
 
 export default async function AppLayout({
   children,
@@ -17,6 +18,7 @@ export default async function AppLayout({
       <TopBar subtitle={roleLabel(profile.role)} />
       <PageTransition>{children}</PageTransition>
       <BottomNav />
+      <SplashScreen />
     </div>
   );
 }

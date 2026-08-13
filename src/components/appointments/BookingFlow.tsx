@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addDays, format } from "date-fns";
 import { motion } from "framer-motion";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Phone, X, UserPlus, Plus, ArrowLeft, Check, AlertCircle,
 } from "lucide-react";
@@ -14,13 +15,13 @@ import * as appointmentService from "@/services/appointmentService.client";
 import { createPatientAction } from "@/app/actions/patients";
 import { bookAppointmentAction } from "@/app/actions/appointments";
 import { PatientPreviewCard } from "@/components/patients/PatientPreviewCard";
+import { BookingSuccessOverlay } from "@/components/appointments/SuccessOverlay";
 import {
   APPOINTMENT_TYPE_LABELS, APPOINTMENT_TYPES, normalizePhone, to12h,
 } from "@/lib/utils";
 import type {
   AppointmentType, Gender, PatientPreview,
 } from "@/lib/types";
-import type { Slot } from "@/services/appointmentService.client";
 
 type DentistOption = { id: string; name: string };
 type Stage = "lookup" | "create" | "booking";
@@ -180,24 +181,20 @@ function CreatePatient({
   onCreated: (p: PatientPreview) => void;
 }) {
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
   const [gender, setGender] = useState<Gender | "">("");
   const [email, setEmail] = useState("");
   const [duplicate, setDuplicate] = useState(false);
-  const [pending, start] = useTransition();
 
-  function submit() {
-    start(async () => {
-      const res = await createPatientAction({
-        full_name: name.trim(),
-        phone,
-        email: email || null,
-        date_of_birth: dob || null,
-        gender: gender || null,
-      });
+  const createPatient = useMutation({
+    mutationFn: createPatientAction,
+    onSuccess: (res) => {
       if (res.ok) {
         toast.push(`${name.trim()} added`);
+        queryClient.invalidateQueries({ queryKey: ["patient-search"] });
+        queryClient.invalidateQueries({ queryKey: ["patient-by-phone"] });
         onCreated({
           id: res.patientId,
           full_name: name.trim(),
@@ -231,8 +228,20 @@ function CreatePatient({
       } else {
         toast.push(res.error ?? "Couldn’t create patient", "error");
       }
+    },
+    onError: () => toast.push("Couldn’t create patient", "error"),
+  });
+
+  function submit() {
+    createPatient.mutate({
+      full_name: name.trim(),
+      phone,
+      email: email || null,
+      date_of_birth: dob || null,
+      gender: gender || null,
     });
   }
+  const pending = createPatient.isPending;
 
   return (
     <div>
@@ -330,6 +339,7 @@ function Booking({
   onBooked: () => void;
 }) {
   const toast = useToast();
+  const queryClient = useQueryClient();
   const dates = useMemo(
     () => Array.from({ length: 14 }, (_, i) => addDays(new Date(), i)),
     [],
@@ -338,41 +348,46 @@ function Booking({
   const [type, setType] = useState<AppointmentType>("consultation");
   const [dateKey, setDateKey] = useState(format(dates[0], "yyyy-MM-dd"));
   const [slot, setSlot] = useState<string | null>(null);
-  const [slots, setSlots] = useState<Slot[] | null>(null);
-  const [pending, start] = useTransition();
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    setSlot(null);
-    if (!dentist) {
-      setSlots([]);
-      return;
-    }
-    setSlots(null);
-    appointmentService
-      .availableSlots(dateKey, dentist)
-      .then((s) => !cancelled && setSlots(s))
-      .catch(() => !cancelled && setSlots([]));
-    return () => {
-      cancelled = true;
-    };
-  }, [dateKey, dentist]);
+  const { data: slots = null } = useQuery({
+    queryKey: ["available-slots", dateKey, dentist],
+    queryFn: () => appointmentService.availableSlots(dateKey, dentist),
+    enabled: Boolean(dentist),
+  });
+
+  useEffect(() => setSlot(null), [dateKey, dentist]);
+
+  const bookAppointment = useMutation({
+    mutationFn: bookAppointmentAction,
+    onSuccess: (res) => {
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: ["available-slots", dateKey, dentist] });
+        setShowSuccess(true);
+      } else if (res.conflict) {
+        toast.push("That slot was just taken. Pick another.", "error");
+        queryClient.invalidateQueries({ queryKey: ["available-slots", dateKey, dentist] });
+      } else {
+        toast.push(res.error ?? "Couldn’t book", "error");
+      }
+    },
+    onError: () => toast.push("Couldn’t book", "error"),
+  });
 
   function confirm() {
     if (!slot || !dentist) return;
-    start(async () => {
-      const res = await bookAppointmentAction({
-        patient_id: patient.id,
-        dentist_id: dentist,
-        appointment_date: dateKey,
-        start_time: slot,
-        appointment_type: type,
-      });
-      if (res.ok) onBooked();
-      else if (res.conflict)
-        toast.push("That slot was just taken. Pick another.", "error");
-      else toast.push(res.error ?? "Couldn’t book", "error");
+    bookAppointment.mutate({
+      patient_id: patient.id,
+      dentist_id: dentist,
+      appointment_date: dateKey,
+      start_time: slot,
+      appointment_type: type,
     });
+  }
+  const pending = bookAppointment.isPending;
+
+  if (showSuccess) {
+    return <BookingSuccessOverlay onDone={onBooked} />;
   }
 
   return (

@@ -5,7 +5,11 @@
 // getCurrentProfile() and the session API route, never by middleware).
 
 export const SESSION_COOKIE_NAME = "session";
-export const SESSION_EXPIRES_IN_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+// Session verification skips the revocation check (see verify-session.ts) to
+// avoid a network round trip on every request. That trades away instant
+// revocation for speed, so the cookie lifetime is kept short to bound how
+// long a disabled/reset account's old session stays usable.
+export const SESSION_EXPIRES_IN_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 
 /**
  * Cheap, unverified presence check — used by middleware. Real verification

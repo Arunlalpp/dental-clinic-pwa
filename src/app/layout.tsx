@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 import { ServiceWorker } from "@/components/layout/ServiceWorker";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 
 // Font: uses a system stack that prefers Inter (see globals.css --font-inter).
 // To bundle the exact Inter webfont instead, restore next/font:
@@ -40,7 +41,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-canvas font-sans text-ink antialiased">
-        <ToastProvider>{children}</ToastProvider>
+        <QueryProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </QueryProvider>
         <ServiceWorker />
       </body>
     </html>

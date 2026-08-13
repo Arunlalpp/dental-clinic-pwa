@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { Search, Users, ChevronRight } from "lucide-react";
 import { Avatar, Card, EmptyState, Skeleton } from "@/components/ui";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -13,26 +14,17 @@ import type { PatientPreview } from "@/lib/types";
 export function PatientSearchList({ initial }: { initial: PatientPreview[] }) {
   const [query, setQuery] = useState("");
   const debounced = useDebounce(query, 300);
-  const [results, setResults] = useState<PatientPreview[]>(initial);
-  const [loading, setLoading] = useState(false);
+  const trimmed = debounced.trim();
 
-  useEffect(() => {
-    if (!debounced.trim()) {
-      setResults(initial);
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    patientService
-      .searchPatients(debounced)
-      .then((r) => !cancelled && setResults(r))
-      .catch(() => !cancelled && setResults([]))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [debounced, initial]);
+  const { data, isFetching } = useQuery({
+    queryKey: ["patient-search", trimmed],
+    queryFn: () => patientService.searchPatients(trimmed),
+    enabled: trimmed.length > 0,
+    placeholderData: (prev) => prev,
+  });
+
+  const results = trimmed ? (data ?? []) : initial;
+  const loading = trimmed.length > 0 && isFetching;
 
   return (
     <div className="space-y-4">

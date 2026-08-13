@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { X, Plus, Trash2, CheckCheck } from "lucide-react";
 import { Button, Card, Chip, Field } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { completeConsultationAction } from "@/app/actions/appointments";
 import { APPOINTMENT_TYPE_LABELS, APPOINTMENT_TYPES, getFee } from "@/lib/utils";
+import { ConsultationSuccessOverlay } from "@/components/appointments/SuccessOverlay";
 import type { Appointment, AppointmentType, Medicine, TreatmentPrice } from "@/lib/types";
 
 const emptyMedicine = (): Medicine => ({ name: "", dosage: "", frequency: "", duration: "" });
@@ -28,6 +30,7 @@ export function CompleteConsultationSheet({
   onDone: () => void;
 }) {
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [type, setType] = useState<AppointmentType>(appointment.appointment_type);
   const [fee, setFee] = useState(() =>
     String(getFee(prices, appointment.appointment_type, appointment.dentist_id)),
@@ -38,7 +41,22 @@ export function CompleteConsultationSheet({
   const [writePrescription, setWritePrescription] = useState(false);
   const [medicines, setMedicines] = useState<Medicine[]>([emptyMedicine()]);
   const [prescriptionNotes, setPrescriptionNotes] = useState("");
-  const [pending, start] = useTransition();
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const completeConsultation = useMutation({
+    mutationFn: completeConsultationAction,
+    onSuccess: (res) => {
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: ["patient-search"] });
+        queryClient.invalidateQueries({ queryKey: ["patient-by-phone"] });
+        setShowSuccess(true);
+      } else {
+        toast.push(res.error ?? "Couldn’t complete consultation", "error");
+      }
+    },
+    onError: () => toast.push("Couldn’t complete consultation", "error"),
+  });
+  const pending = completeConsultation.isPending;
 
   function selectType(t: AppointmentType) {
     setType(t);
@@ -50,31 +68,27 @@ export function CompleteConsultationSheet({
   }
 
   function submit() {
-    start(async () => {
-      const cleanedMedicines = medicines
-        .map((m) => ({ ...m, name: m.name.trim() }))
-        .filter((m) => m.name);
-      const res = await completeConsultationAction({
-        appointment_id: appointment.id,
-        patient_id: appointment.patient_id,
-        dentist_id: appointment.dentist_id,
-        treatment_type: type,
-        tooth_number: toothNumber || null,
-        diagnosis: diagnosis || null,
-        notes: notes || null,
-        cost: Number(fee) || 0,
-        prescription:
-          writePrescription && cleanedMedicines.length > 0
-            ? { medicines: cleanedMedicines, notes: prescriptionNotes || null }
-            : null,
-      });
-      if (res.ok) {
-        toast.push("Consultation completed");
-        onDone();
-      } else {
-        toast.push(res.error ?? "Couldn’t complete consultation", "error");
-      }
+    const cleanedMedicines = medicines
+      .map((m) => ({ ...m, name: m.name.trim() }))
+      .filter((m) => m.name);
+    completeConsultation.mutate({
+      appointment_id: appointment.id,
+      patient_id: appointment.patient_id,
+      dentist_id: appointment.dentist_id,
+      treatment_type: type,
+      tooth_number: toothNumber || null,
+      diagnosis: diagnosis || null,
+      notes: notes || null,
+      cost: Number(fee) || 0,
+      prescription:
+        writePrescription && cleanedMedicines.length > 0
+          ? { medicines: cleanedMedicines, notes: prescriptionNotes || null }
+          : null,
     });
+  }
+
+  if (showSuccess) {
+    return <ConsultationSuccessOverlay onDone={onDone} />;
   }
 
   return (

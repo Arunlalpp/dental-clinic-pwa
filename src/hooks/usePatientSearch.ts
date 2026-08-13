@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/useDebounce";
 import { normalizePhone } from "@/lib/utils";
 import * as patientService from "@/services/patientService.client";
@@ -10,30 +10,26 @@ type State = "idle" | "searching" | "found" | "empty" | "error";
 /** Debounced phone lookup for the booking hot path. */
 export function usePatientSearch(phone: string) {
   const debounced = useDebounce(phone, 350);
-  const [state, setState] = useState<State>("idle");
-  const [match, setMatch] = useState<PatientPreview | null>(null);
+  const normalized = normalizePhone(debounced);
+  const enabled = normalized.length >= 4;
 
-  useEffect(() => {
-    const n = normalizePhone(debounced);
-    if (n.length < 4) {
-      setState("idle");
-      setMatch(null);
-      return;
-    }
-    let cancelled = false;
-    setState("searching");
-    patientService
-      .findByExactPhone(debounced)
-      .then((res) => {
-        if (cancelled) return;
-        setMatch(res);
-        setState(res ? "found" : "empty");
-      })
-      .catch(() => !cancelled && setState("error"));
-    return () => {
-      cancelled = true;
-    };
-  }, [debounced]);
+  const { data, isFetching, isError } = useQuery({
+    queryKey: ["patient-by-phone", normalized],
+    queryFn: () => patientService.findByExactPhone(debounced),
+    enabled,
+    placeholderData: (prev) => prev,
+  });
+
+  const match: PatientPreview | null = enabled ? data ?? null : null;
+  const state: State = !enabled
+    ? "idle"
+    : isError
+      ? "error"
+      : isFetching
+        ? "searching"
+        : match
+          ? "found"
+          : "empty";
 
   return { state, match };
 }
