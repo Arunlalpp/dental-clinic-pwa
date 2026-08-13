@@ -2,6 +2,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { appointmentFromDoc } from "@/lib/firebase/converters";
 import { recomputeStats } from "@/services/patientService";
+import { dateKey, minutesSinceMidnightIST, timeToMinutes } from "@/lib/utils";
 import type { Appointment, AppointmentStatus, AppointmentType } from "@/lib/types";
 
 /** Server-side counterpart of appointmentService.client.ts's listByDate —
@@ -111,7 +112,7 @@ export async function createAppointment(
   return { appointment: appointmentFromDoc(snap.id, snap.data()!), conflict: false };
 }
 
-export async function updateStatus(id: string, status: AppointmentStatus): Promise<void> {
+export async function updateStatus(id: string, status: AppointmentStatus): Promise<Appointment> {
   const apptRef = adminDb.collection("appointments").doc(id);
   const snap = await apptRef.get();
   if (!snap.exists) throw new Error("Appointment not found");
@@ -131,4 +132,45 @@ export async function updateStatus(id: string, status: AppointmentStatus): Promi
   }
 
   await recomputeStats(data.patientId as string);
+
+  return appointmentFromDoc(id, { ...data, status });
+}
+
+// A reminder fires once an appointment is this many minutes out, and stays
+// "due" for a window this wide — the window must be at least as long as the
+// cron's polling interval, or an appointment can fall through the gap
+// between two runs and never get reminded. With the 10-minute cron in
+// vercel.json, a 15-minute window gives a couple of minutes' safety margin.
+const REMINDER_LEAD_MINUTES = 30;
+const REMINDER_WINDOW_MINUTES = 15;
+const REMINDABLE_STATUSES: AppointmentStatus[] = ["scheduled", "confirmed"];
+
+/** Today's appointments starting soon that haven't been reminded yet. */
+export async function findDueReminders(): Promise<Appointment[]> {
+  const today = dateKey();
+  const nowMinutes = minutesSinceMidnightIST();
+  const windowStart = nowMinutes + REMINDER_LEAD_MINUTES;
+  const windowEnd = windowStart + REMINDER_WINDOW_MINUTES;
+
+  const snap = await adminDb
+    .collection("appointments")
+    .where("appointmentDate", "==", today)
+    .get();
+
+  return snap.docs
+    .filter((d) => {
+      const data = d.data();
+      if (data.reminderSentAt) return false;
+      if (!REMINDABLE_STATUSES.includes(data.status as AppointmentStatus)) return false;
+      const startMinutes = timeToMinutes(data.startTime as string);
+      return startMinutes >= windowStart && startMinutes < windowEnd;
+    })
+    .map((d) => appointmentFromDoc(d.id, d.data()));
+}
+
+export async function markReminderSent(id: string): Promise<void> {
+  await adminDb
+    .collection("appointments")
+    .doc(id)
+    .update({ reminderSentAt: FieldValue.serverTimestamp() });
 }

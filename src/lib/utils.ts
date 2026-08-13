@@ -40,6 +40,26 @@ export function hourIST(date: Date = new Date()): number {
   return hour % 24;
 }
 
+/** Minutes since midnight in the clinic's local timezone — for comparing
+ * "now" against a stored "HH:mm" appointment start_time. */
+export function minutesSinceMidnightIST(date: Date = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: CLINIC_TIMEZONE,
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  }).formatToParts(date);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0) % 24;
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return hour * 60 + minute;
+}
+
+/** "14:30" | "14:30:00" -> 870 */
+export function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
 /** Digits-only normalization — mirrors the DB `normalize_phone` trigger. */
 export function normalizePhone(raw: string): string {
   return (raw || "").replace(/\D/g, "");

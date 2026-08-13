@@ -1,6 +1,7 @@
 import { getApps, getApp, initializeApp, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { getMessaging } from "firebase-admin/messaging";
 
 // FIREBASE_SERVICE_ACCOUNT_KEY holds the full service-account JSON (as a
 // single-line string) from Firebase console -> Project settings -> Service
@@ -14,3 +15,4 @@ const app = getApps().length
 
 export const adminAuth = getAuth(app);
 export const adminDb = getFirestore(app);
+export const adminMessaging = getMessaging(app);

@@ -1,12 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { getCurrentProfile } from "@/lib/auth";
 import * as appointmentService from "@/services/appointmentService";
 import * as treatmentService from "@/services/treatmentService";
 import * as prescriptionService from "@/services/prescriptionService";
+import { notifyStaff } from "@/services/notificationService";
 import type { NewAppointmentInput } from "@/services/appointmentService";
-import { APPOINTMENT_TYPE_LABELS, dateKey } from "@/lib/utils";
+import { APPOINTMENT_TYPE_LABELS, dateKey, to12h } from "@/lib/utils";
 import type { AppointmentStatus, AppointmentType, Medicine } from "@/lib/types";
 
 const CLINICAL_ROLES = ["owner", "admin", "dentist"];
@@ -27,6 +29,14 @@ export async function bookAppointmentAction(
     });
     if (conflict || !appointment) return { ok: false, conflict: true };
 
+    after(() =>
+      notifyStaff({
+        title: "New appointment booked",
+        body: `${appointment.patient_name} with ${appointment.dentist_name ?? "unassigned"} · ${to12h(appointment.start_time)}`,
+        url: "/appointments",
+      }),
+    );
+
     revalidatePath("/dashboard");
     revalidatePath("/appointments");
     return { ok: true, appointmentId: appointment.id };
@@ -40,7 +50,18 @@ export async function updateAppointmentStatusAction(
   status: AppointmentStatus,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    await appointmentService.updateStatus(id, status);
+    const appointment = await appointmentService.updateStatus(id, status);
+
+    if (status === "checked_in") {
+      after(() =>
+        notifyStaff({
+          title: "Patient checked in",
+          body: `${appointment.patient_name} · ${appointment.dentist_name ?? "unassigned"}`,
+          url: "/appointments",
+        }),
+      );
+    }
+
     revalidatePath("/dashboard");
     revalidatePath("/appointments");
     return { ok: true };
@@ -102,7 +123,15 @@ export async function completeConsultationAction(
       });
     }
 
-    await appointmentService.updateStatus(input.appointment_id, "completed");
+    const appointment = await appointmentService.updateStatus(input.appointment_id, "completed");
+
+    after(() =>
+      notifyStaff({
+        title: "Consultation completed",
+        body: `${appointment.patient_name} · ${treatment.treatment_name}${appointment.dentist_name ? ` · ${appointment.dentist_name}` : ""}`,
+        url: `/patients/${input.patient_id}`,
+      }),
+    );
 
     revalidatePath("/dashboard");
     revalidatePath("/appointments");

@@ -1,0 +1,25 @@
+name: Appointment reminders
+
+# Polls /api/cron/reminders on a schedule, standing in for Vercel Cron Jobs
+# (which only support sub-daily schedules on Pro+ — this project is on
+# Hobby). GitHub's own scheduler isn't minute-precise and can lag by a few
+# minutes under load, which is why the reminder window in
+# appointmentService.ts (findDueReminders) is wider than this interval.
+#
+# Setup (once): in this repo's Settings -> Secrets and variables -> Actions,
+# add:
+#   APP_URL     - the deployed site's origin, e.g. https://your-app.vercel.app
+#   CRON_SECRET - must match the CRON_SECRET env var set on the Vercel project
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call reminder endpoint
+        run: |
+          curl -sf -X GET "${{ secrets.APP_URL }}/api/cron/reminders" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
