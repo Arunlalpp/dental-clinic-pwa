@@ -77,13 +77,19 @@ export async function disablePush(): Promise<void> {
 }
 
 /** Foreground-only — background/closed-tab notifications are shown by the
- * onBackgroundMessage handler in public/sw.js instead. */
-export async function onForegroundPush(handler: (title: string, body: string) => void) {
+ * onBackgroundMessage handler in public/sw.js instead. FCM won't surface a
+ * system notification for these on its own (that's by design — it assumes
+ * an on-screen app doesn't need one), so `handler` gets the raw payload and
+ * decides for itself what to show. */
+export async function onForegroundPush(
+  handler: (title: string, body: string, url: string) => void,
+) {
   const messaging = await getMessagingInstance();
   if (!messaging) return () => {};
   return onMessage(messaging, (payload) => {
     const title = payload.notification?.title ?? "Carewell";
     const body = payload.notification?.body ?? "";
-    handler(title, body);
+    const url = payload.fcmOptions?.link ?? payload.data?.url ?? "/dashboard";
+    handler(title, body, url);
   });
 }
