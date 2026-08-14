@@ -3,7 +3,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { signOutAction } from "@/app/actions/auth";
 import { Avatar, Card, Button } from "@/components/ui";
 import { NotificationToggle } from "@/components/settings/NotificationToggle";
-import { Shield, LogOut, Building2, IndianRupee, ChevronRight, Pill } from "lucide-react";
+import { Shield, LogOut, Building2, ChevronRight, LayoutGrid, Clock } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -35,28 +35,23 @@ export default async function SettingsPage() {
       </Card>
 
       <Card>
-        <Link href="/settings/medicines" className="flex items-center gap-3 p-4">
+        <Link href="/attendance" className="flex items-center gap-3 p-4">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-50">
-            <Pill size={18} className="text-brand-600" />
+            <Clock size={18} className="text-brand-600" />
           </span>
-          <span className="flex-1 text-sm font-medium text-slate-700">
-            Medicine reference
-          </span>
+          <span className="flex-1 text-sm font-medium text-slate-700">My attendance</span>
           <ChevronRight size={16} className="text-slate-300" />
         </Link>
       </Card>
 
       {isAdmin && (
         <Card>
-          <Link
-            href="/settings/treatment-prices"
-            className="flex items-center gap-3 p-4"
-          >
+          <Link href="/admin" className="flex items-center gap-3 p-4">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-50">
-              <IndianRupee size={18} className="text-brand-600" />
+              <LayoutGrid size={18} className="text-brand-600" />
             </span>
             <span className="flex-1 text-sm font-medium text-slate-700">
-              Treatment prices
+              Admin dashboard
             </span>
             <ChevronRight size={16} className="text-slate-300" />
           </Link>

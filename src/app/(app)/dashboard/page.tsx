@@ -1,8 +1,11 @@
+import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth";
 import * as reportService from "@/services/reportService";
 import * as appointmentService from "@/services/appointmentService";
+import * as attendanceService from "@/services/attendanceService";
 import { StatCard, QuickActions } from "@/components/dashboard/DashboardBits";
 import { TodayTimeline } from "@/components/dashboard/TodayTimeline";
+import { AttendanceCheckCard } from "@/components/attendance/AttendanceCheckCard";
 import { dateKey, formatDateIST, hourIST } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +14,10 @@ export default async function DashboardPage() {
   const profile = await getCurrentProfile();
   const today = dateKey();
 
-  const [stats, appointments] = await Promise.all([
+  const [stats, appointments, todayAttendance] = await Promise.all([
     reportService.dashboardStats(today),
     appointmentService.listByDate(today),
+    profile ? attendanceService.getTodayAttendance(profile.id) : Promise.resolve(null),
   ]);
 
   const hour = hourIST();
@@ -37,6 +41,16 @@ export default async function DashboardPage() {
         <StatCard label="Completed" value={stats.completed} tone="emerald" />
         <StatCard label="Pending" value={stats.pending} tone="amber" />
       </div>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-400">My attendance</h2>
+          <Link href="/attendance" className="text-xs font-semibold text-brand-600">
+            View history
+          </Link>
+        </div>
+        <AttendanceCheckCard initial={todayAttendance} />
+      </section>
 
       <section>
         <h2 className="mb-3 text-sm font-semibold text-slate-400">Quick actions</h2>

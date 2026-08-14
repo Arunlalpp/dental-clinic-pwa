@@ -41,6 +41,9 @@ export interface Profile {
   email: string | null;
   role: UserRole;
   avatar_url: string | null;
+  phone: string | null;
+  joining_date: string | null;
+  monthly_salary: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -133,6 +136,27 @@ export interface TreatmentPrice {
   updated_at: string;
 }
 
+// medicines/{id} — the admin-managed catalog (Settings -> Medicine
+// reference). Distinct from Medicine below: a Prescription snapshots
+// name/dosage/frequency/duration at write time rather than referencing a
+// catalog id, so editing or deleting a catalog entry never touches existing
+// prescriptions.
+export interface MedicineCatalogItem {
+  id: string;
+  name: string;
+  generic_name: string | null;
+  category: string;
+  strength: string;
+  form: string;
+  manufacturer: string | null;
+  description: string | null;
+  usage_instructions: string | null;
+  notes: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Medicine {
   name: string;
   dosage: string;
@@ -176,4 +200,59 @@ export interface PatientPreview extends Patient {
   last_treatment: string | null;
   total_visits: number;
   outstanding: number;
+}
+
+// notifications/{id} — a durable record of every push notifyStaff() sends,
+// so the admin bell has history beyond whatever arrived while a device was
+// online. read_by is a list of profile ids rather than a per-user
+// subcollection since clinic staff counts are small (single digits).
+export interface AppNotification {
+  id: string;
+  title: string;
+  body: string;
+  url: string | null;
+  created_at: string;
+  read_by: string[];
+}
+
+// settings/attendance — a clinic-wide singleton doc (no per-dentist
+// overrides, unlike treatmentPrices). Times are "HH:mm" 24h strings compared
+// against minutesSinceMidnightIST() so no timezone math leaks into the UI.
+export interface AttendanceSettings {
+  work_start: string;
+  work_end: string;
+}
+
+// attendance/{staffId}_{date} — doc ID is deterministic (not auto-generated)
+// so "one record per staff per date" is enforced by construction rather
+// than a query-then-check race, and history reads can batch-get by ID
+// instead of needing a composite index. status reflects the check-in only
+// (late is still "checked in", just flagged); there's no stored "absent"
+// row — a missing doc for an elapsed date means absent.
+export type AttendanceStatus = "present" | "late";
+
+export interface AttendanceRecord {
+  id: string;
+  staff_id: string;
+  staff_name: string;
+  date: string;
+  check_in: string | null;
+  check_out: string | null;
+  total_minutes: number | null;
+  late_minutes: number;
+  overtime_minutes: number;
+  early_checkout_minutes: number;
+  status: AttendanceStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttendanceMonthlySummary {
+  working_days: number;
+  present: number;
+  absent: number;
+  late: number;
+  total_minutes: number;
+  overtime_minutes: number;
 }

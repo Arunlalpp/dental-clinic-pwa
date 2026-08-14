@@ -69,6 +69,37 @@ export function formatINR(n: number | null | undefined): string {
   return "₹" + Number(n ?? 0).toLocaleString("en-IN");
 }
 
+/** ISO timestamp -> "9:32 AM" in the clinic's local timezone. */
+export function formatTimeIST(iso: string | null | undefined): string {
+  if (!iso) return "--";
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: CLINIC_TIMEZONE,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(iso));
+}
+
+/** Minutes -> "08h 24m" (or "24m" under an hour). */
+export function formatDuration(totalMinutes: number | null | undefined): string {
+  if (!totalMinutes || totalMinutes <= 0) return "0m";
+  const h = Math.floor(totalMinutes / 60);
+  const m = Math.round(totalMinutes % 60);
+  return h > 0 ? `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m` : `${m}m`;
+}
+
+/**
+ * Shifts a YYYY-MM-DD date by `days` (may be negative) while staying on the
+ * clinic's local calendar — anchoring at noon IST keeps this correct
+ * regardless of the server process's own timezone, with no DST to worry
+ * about since IST has none.
+ */
+export function addDaysToDateKey(date: string, days: number): string {
+  const d = new Date(`${date}T12:00:00+05:30`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return dateKey(d);
+}
+
 export function initials(name: string): string {
   return name
     .trim()

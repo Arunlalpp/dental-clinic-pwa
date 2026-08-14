@@ -53,6 +53,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Writes go through medicine server actions (Admin SDK, isAdmin-gated
+    // there too) — the client-side rule only needs to cover the read used
+    // by the prescription autocomplete (medicineService.client.ts).
+    match /medicines/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
     // Uniqueness/locking/counter documents — touched only inside Admin SDK
     // transactions server-side (createPatient / createAppointment); never
     // written or read directly by a client.

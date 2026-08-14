@@ -1,6 +1,8 @@
 import { FieldValue } from "firebase-admin/firestore";
 import type { MulticastMessage } from "firebase-admin/messaging";
 import { adminDb, adminMessaging } from "@/lib/firebase/admin";
+import { notificationFromDoc } from "@/lib/firebase/converters";
+import type { AppNotification } from "@/lib/types";
 
 export interface PushPayload {
   title: string;
@@ -16,11 +18,25 @@ const DEAD_TOKEN_CODES = new Set([
 
 /**
  * Pushes to every signed-in staff member with at least one registered
- * device. Best-effort: failures here should never fail the caller's
- * underlying action (booking/checkin/etc.), so this never throws — errors
- * are swallowed after an attempt.
+ * device, and always writes a durable record to `notifications` regardless
+ * of push delivery (so the admin bell has history even with no devices
+ * registered, or if a push silently fails). Best-effort: failures here
+ * should never fail the caller's underlying action (booking/checkin/etc.),
+ * so this never throws — errors are swallowed after an attempt.
  */
 export async function notifyStaff(payload: PushPayload): Promise<void> {
+  try {
+    await adminDb.collection("notifications").add({
+      title: payload.title,
+      body: payload.body,
+      url: payload.url ?? null,
+      readBy: [],
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  } catch {
+    // Recording history is best-effort too — still attempt the push below.
+  }
+
   try {
     const snap = await adminDb.collection("profiles").get();
 
@@ -63,4 +79,30 @@ export async function notifyStaff(payload: PushPayload): Promise<void> {
   } catch {
     // Push delivery is a nice-to-have, never worth failing the caller over.
   }
+}
+
+export async function listRecentNotifications(limitCount = 20): Promise<AppNotification[]> {
+  const snap = await adminDb
+    .collection("notifications")
+    .orderBy("createdAt", "desc")
+    .limit(limitCount)
+    .get();
+  return snap.docs.map((d) => notificationFromDoc(d.id, d.data()));
+}
+
+export async function markNotificationRead(id: string, uid: string): Promise<void> {
+  await adminDb
+    .collection("notifications")
+    .doc(id)
+    .update({ readBy: FieldValue.arrayUnion(uid) });
+}
+
+export async function markAllNotificationsRead(uid: string, ids: string[]): Promise<void> {
+  const batch = adminDb.batch();
+  for (const id of ids) {
+    batch.update(adminDb.collection("notifications").doc(id), {
+      readBy: FieldValue.arrayUnion(uid),
+    });
+  }
+  await batch.commit();
 }

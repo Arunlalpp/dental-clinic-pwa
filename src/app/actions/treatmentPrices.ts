@@ -21,7 +21,7 @@ export async function setDefaultFeeAction(
   if (denied) return denied;
   try {
     await treatmentPriceService.setDefaultFee(treatmentType, fee);
-    revalidatePath("/settings/treatment-prices");
+    revalidatePath("/admin/treatments/prices");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -37,7 +37,7 @@ export async function setDentistFeeAction(
   if (denied) return denied;
   try {
     await treatmentPriceService.setDentistFee(treatmentType, dentistId, fee);
-    revalidatePath("/settings/treatment-prices");
+    revalidatePath("/admin/treatments/prices");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME, hasSessionCookie } from "@/lib/firebase/session";
 
-const PUBLIC_PATHS = ["/login", "/auth"];
+const PUBLIC_PATHS = ["/login", "/auth", "/admin/login"];
 
 // Cheap, unverified presence check only — no Admin SDK call here, so
 // middleware stays on the lightweight Edge runtime. Full session
@@ -15,8 +15,12 @@ export function middleware(request: NextRequest) {
 
   if (!signedIn && !isPublic) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", path);
+    if (path.startsWith("/admin")) {
+      url.pathname = "/admin/login";
+    } else {
+      url.pathname = "/login";
+      url.searchParams.set("next", path);
+    }
     return NextResponse.redirect(url);
   }
 

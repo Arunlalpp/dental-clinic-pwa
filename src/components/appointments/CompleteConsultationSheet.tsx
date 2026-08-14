@@ -2,15 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, Plus, Trash2, CheckCheck } from "lucide-react";
 import { Button, Card, Chip, Field } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { completeConsultationAction } from "@/app/actions/appointments";
 import { APPOINTMENT_TYPE_LABELS, APPOINTMENT_TYPES, getFee } from "@/lib/utils";
 import { ConsultationSuccessOverlay } from "@/components/appointments/SuccessOverlay";
-import { ALL_MEDICINES } from "@/lib/medicineReference";
-import type { Appointment, AppointmentType, Medicine, TreatmentPrice } from "@/lib/types";
+import * as medicineService from "@/services/medicineService.client";
+import type { Appointment, AppointmentType, Medicine, MedicineCatalogItem, TreatmentPrice } from "@/lib/types";
 
 const emptyMedicine = (): Medicine => ({ name: "", dosage: "", frequency: "", duration: "" });
 
@@ -32,6 +32,11 @@ export function CompleteConsultationSheet({
 }) {
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { data: medicineCatalog = [] } = useQuery({
+    queryKey: ["active-medicines"],
+    queryFn: medicineService.listActiveMedicines,
+    staleTime: 5 * 60_000,
+  });
   const [type, setType] = useState<AppointmentType>(appointment.appointment_type);
   const [fee, setFee] = useState(() =>
     String(getFee(prices, appointment.appointment_type, appointment.dentist_id)),
@@ -230,6 +235,7 @@ export function CompleteConsultationSheet({
                           index={i}
                           value={m.name}
                           onUpdate={updateMedicine}
+                          catalog={medicineCatalog}
                         />
                         <input
                           value={m.dosage}
@@ -292,10 +298,12 @@ function MedicineNameField({
   index,
   value,
   onUpdate,
+  catalog,
 }: {
   index: number;
   value: string;
   onUpdate: (i: number, patch: Partial<Medicine>) => void;
+  catalog: MedicineCatalogItem[];
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -312,7 +320,7 @@ function MedicineNameField({
 
   const query = value.trim().toLowerCase();
   const matches = query
-    ? ALL_MEDICINES.filter((m) => m.name.toLowerCase().includes(query)).slice(0, 6)
+    ? catalog.filter((m) => m.name.toLowerCase().includes(query)).slice(0, 6)
     : [];
 
   return (
@@ -332,21 +340,21 @@ function MedicineNameField({
         <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-xl bg-white py-1 shadow-float ring-1 ring-slate-100">
           {matches.map((m) => (
             <button
-              key={m.name}
+              key={m.id}
               type="button"
               onClick={() => {
                 onUpdate(index, {
                   name: m.name,
-                  dosage: m.dosage,
-                  frequency: m.frequency,
-                  duration: m.duration,
+                  dosage: m.strength,
+                  frequency: m.usage_instructions ?? "",
+                  duration: "",
                 });
                 setOpen(false);
               }}
               className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition hover:bg-slate-50"
             >
               <span className="truncate font-medium text-slate-700">{m.name}</span>
-              <span className="shrink-0 text-xs text-slate-400">{m.dosage}</span>
+              <span className="shrink-0 text-xs text-slate-400">{m.strength}</span>
             </button>
           ))}
         </div>

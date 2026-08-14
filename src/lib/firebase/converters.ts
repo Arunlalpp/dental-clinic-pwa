@@ -1,7 +1,10 @@
 import type {
   Appointment,
+  AppNotification,
+  AttendanceRecord,
   Dentist,
   Medicine,
+  MedicineCatalogItem,
   Patient,
   PatientStats,
   Payment,
@@ -32,6 +35,11 @@ function nullable<T>(value: T | undefined): T | null {
   return value === undefined ? null : value;
 }
 
+function nullableTs(value: unknown): string | null {
+  if (value == null) return null;
+  return tsToIso(value);
+}
+
 export function profileFromDoc(id: string, data: Record<string, unknown>): Profile {
   return {
     id,
@@ -39,6 +47,9 @@ export function profileFromDoc(id: string, data: Record<string, unknown>): Profi
     email: nullable(data.email as string | undefined),
     role: data.role as Profile["role"],
     avatar_url: nullable(data.avatarUrl as string | undefined),
+    phone: nullable(data.phone as string | undefined),
+    joining_date: nullable(data.joiningDate as string | undefined),
+    monthly_salary: nullable(data.monthlySalary as number | undefined),
     created_at: tsToIso(data.createdAt),
     updated_at: tsToIso(data.updatedAt),
   };
@@ -185,5 +196,62 @@ export function paymentFromDoc(id: string, data: Record<string, unknown>): Payme
     notes: nullable(data.notes as string | undefined),
     created_by: nullable(data.createdBy as string | undefined),
     created_at: tsToIso(data.createdAt),
+  };
+}
+
+export function medicineCatalogFromDoc(
+  id: string,
+  data: Record<string, unknown>,
+): MedicineCatalogItem {
+  return {
+    id,
+    name: data.name as string,
+    generic_name: nullable(data.genericName as string | undefined),
+    category: (data.category as string) ?? "Other",
+    strength: (data.strength as string) ?? "",
+    form: (data.form as string) ?? "",
+    manufacturer: nullable(data.manufacturer as string | undefined),
+    description: nullable(data.description as string | undefined),
+    usage_instructions: nullable(data.usageInstructions as string | undefined),
+    notes: nullable(data.notes as string | undefined),
+    active: (data.active as boolean) ?? true,
+    created_at: tsToIso(data.createdAt),
+    updated_at: tsToIso(data.updatedAt),
+  };
+}
+
+export function notificationFromDoc(
+  id: string,
+  data: Record<string, unknown>,
+): AppNotification {
+  return {
+    id,
+    title: data.title as string,
+    body: (data.body as string) ?? "",
+    url: nullable(data.url as string | undefined),
+    created_at: tsToIso(data.createdAt),
+    read_by: (data.readBy as string[]) ?? [],
+  };
+}
+
+export function attendanceFromDoc(
+  id: string,
+  data: Record<string, unknown>,
+): AttendanceRecord {
+  return {
+    id,
+    staff_id: data.staffId as string,
+    staff_name: (data.staffName as string) ?? "",
+    date: data.date as string,
+    check_in: nullableTs(data.checkIn),
+    check_out: nullableTs(data.checkOut),
+    total_minutes: (data.totalMinutes as number | null | undefined) ?? null,
+    late_minutes: (data.lateMinutes as number) ?? 0,
+    overtime_minutes: (data.overtimeMinutes as number) ?? 0,
+    early_checkout_minutes: (data.earlyCheckoutMinutes as number) ?? 0,
+    status: (data.status as AttendanceRecord["status"]) ?? "present",
+    notes: nullable(data.notes as string | undefined),
+    created_at: tsToIso(data.createdAt),
+    updated_at: tsToIso(data.updatedAt),
   };
 }

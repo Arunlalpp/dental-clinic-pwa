@@ -107,3 +107,28 @@ export async function revenueTotals(): Promise<RevenueTotals> {
     outstanding,
   };
 }
+
+export interface PatientCounts {
+  total: number;
+  new_today: number;
+}
+
+export async function patientCounts(): Promise<PatientCounts> {
+  const startOfDay = new Date(`${dateKey()}T00:00:00+05:30`);
+  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
+  const [totalSnap, newSnap] = await Promise.all([
+    adminDb.collection("patients").count().get(),
+    adminDb
+      .collection("patients")
+      .where("createdAt", ">=", startOfDay)
+      .where("createdAt", "<", endOfDay)
+      .count()
+      .get(),
+  ]);
+
+  return {
+    total: totalSnap.data().count,
+    new_today: newSnap.data().count,
+  };
+}
